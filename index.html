@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokeguess</title>
-    <link rel="icon" href="images/pokeguess-icon.png">
+    <title>pokeguess</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="images/pokeguess-icon.png">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Roboto:wght@400;700&display=swap');
@@ -79,16 +79,16 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-8 px-4">
+<body class="min-h-screen flex flex-col items-center py-8 px-4 pb-20">
 
     <!-- Header -->
-    <header class="text-center mb-8 w-full max-w-2xl">
+    <header class="text-center mb-6 w-full max-w-2xl">
         <h1 class="title-font text-2xl md:text-3xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
             Pokeguess
         </h1>
-        <h5 class="title-font text-2xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
-            Devine le pokemon
-        </h5>
+        <h4 class="title-font text-2xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
+            devine le pokemon
+        </h4>
         <div class="flex justify-between items-center bg-gray-800/80 p-4 rounded-xl border border-gray-600 shadow-lg">
             <div class="text-lg font-bold">
                 <i class="fa-solid fa-star text-yellow-400 mr-2"></i>Score : <span id="score" class="text-2xl text-green-400 transition-colors">1000</span>
@@ -129,7 +129,7 @@
                     <!-- Hints injected here -->
                 </div>
                 <button id="btnHint" class="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i class="fa-solid fa-lightbulb mr-2"></i>Indice supplémentaire (-150 pts)
+                    <i class="fa-solid fa-lightbulb mr-2"></i>Indice supp. (-150 pts)
                 </button>
             </div>
 
@@ -166,17 +166,48 @@
         </div>
     </main>
 
+    <!-- Generation Selector (Floating Bottom-Left) -->
+    <div class="fixed bottom-4 left-4 z-30 flex items-center bg-gray-800/95 backdrop-blur-md p-2.5 rounded-xl border border-gray-600 shadow-2xl transition hover:border-gray-500 max-w-[calc(100vw-2rem)]">
+        <label for="genSelect" class="text-xs md:text-sm text-gray-300 font-bold mr-2 whitespace-nowrap">
+            <i class="fa-solid fa-filter text-blue-400 mr-1"></i>Gén :
+        </label>
+        <select id="genSelect" class="bg-gray-900 border border-gray-600 text-white text-xs md:text-sm font-semibold rounded-lg px-2 py-1 outline-none focus:border-blue-500 transition cursor-pointer">
+            <option value="all">Toutes</option>
+            <option value="1">Gen 1 (1-151)</option>
+            <option value="2">Gen 2 (152-251)</option>
+            <option value="3">Gen 3 (252-386)</option>
+            <option value="4">Gen 4 (387-493)</option>
+            <option value="5">Gen 5 (494-649)</option>
+            <option value="6">Gen 6 (650-721)</option>
+            <option value="7">Gen 7 (722-809)</option>
+            <option value="8">Gen 8 (810-898)</option>
+            <option value="9">Gen 9 (899-1010)</option>
+        </select>
+    </div>
+
     <footer class="mt-8 text-gray-400 text-sm">
-        Utilise <a href="https://pokeapi.co/" target="_blank" class="text-blue-400 hover:underline">PokéAPI</a> et une partie du code à été créer avec l'aide de <i>Gemini</i>
-        
+        Utilise <a href="https://pokeapi.co/" target="_blank" class="text-blue-400 hover:underline">PokéAPI</a> et à été créer en partie avec <i>Gemini</i>
     </footer>
 
     <script>
         // --- CONSTANTS & CONFIG ---
-        const MAX_POKEMON = 1010; // Avoid latest forms that might lack translations
         const POINTS_START = 1000;
         const COST_HINT = 150;
         const PENALTY_MISTAKE = 50;
+
+        // Generation ID ranges
+        const GEN_RANGES = {
+            'all': { min: 1, max: 1010 },
+            '1': { min: 1, max: 151 },
+            '2': { min: 152, max: 251 },
+            '3': { min: 252, max: 386 },
+            '4': { min: 387, max: 493 },
+            '5': { min: 494, max: 649 },
+            '6': { min: 650, max: 721 },
+            '7': { min: 722, max: 809 },
+            '8': { min: 810, max: 898 },
+            '9': { min: 899, max: 1010 }
+        };
 
         // Dictionaries to translate English data to French manually when API doesn't provide it
         const TYPES_FR = {
@@ -218,7 +249,8 @@
             streakCounter: document.getElementById('streakCounter'),
             messageArea: document.getElementById('messageArea'),
             btnNext: document.getElementById('btnNext'),
-            successFx: document.getElementById('successFx')
+            successFx: document.getElementById('successFx'),
+            genSelect: document.getElementById('genSelect')
         };
 
         // --- UTILS ---
@@ -282,8 +314,11 @@
             els.loadingScreen.classList.remove('hidden');
 
             try {
-                // Fetch random pokemon
-                const id = Math.floor(Math.random() * MAX_POKEMON) + 1;
+                // Fetch random pokemon based on selected generation
+                const selectedGen = els.genSelect.value;
+                const { min, max } = GEN_RANGES[selectedGen];
+                const id = Math.floor(Math.random() * (max - min + 1)) + min;
+
                 const [pokeRes, speciesRes] = await Promise.all([
                     fetch(`https://pokeapi.co/api/v2/pokemon/${id}`),
                     fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`)
@@ -338,7 +373,7 @@
                 `La 1ère lettre de son nom est : <span class="font-bold text-white uppercase">${state.pokemonNameFr.charAt(0)}</span> (Il a ${state.pokemonNameFr.length} lettres).`,
                 `Son (ou ses) type(s) : <span class="font-bold text-white">${types}</span>.`,
                 `Il est apparu lors de la génération <span class="font-bold text-white">${genNum}</span>.`,
-                `Physique : Couleur dominante <span class="font-bold text-white">${color}</span>, pèse <span class="font-bold text-white">${pokeData.weight / 10}kg</span> et mesure <span class="font-bold text-white">${pokeData.height / 10}m</span>.`,
+                `Physique : Couleur dominante <span class="font-bold text-white">${color}</span>, pèse <span class="font-bold text-white">${pokeData.weight / 10}kg</span> and mesure <span class="font-bold text-white">${pokeData.height / 10}m</span>.`,
                 `Pokédex : <em>"${description}"</em>`,
                 `SILHOUETTE` // Special keyword
             ];
@@ -462,6 +497,12 @@
         els.btnNext.addEventListener('click', () => {
             els.pokemonImage.style.filter = ""; // Reset inline style
             initGame();
+        });
+        
+        // Listen for generation change
+        els.genSelect.addEventListener('change', () => {
+            els.pokemonImage.style.filter = ""; 
+            initGame(); // Restarts the game with a pokemon from the new generation
         });
 
         // Add custom animation for hints
