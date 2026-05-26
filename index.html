@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pokeguess</title>
+    <title>Pokeguess</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" href="images/pokeguess-icon.png">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -86,15 +86,16 @@
         <h1 class="title-font text-2xl md:text-3xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
             Pokeguess
         </h1>
-        <h4 class="title-font text-2xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
-            devine le pokemon
-        </h4>
+        <h1 class="title-font text-2xl text-yellow-400 drop-shadow-md mb-4 leading-relaxed">
+            Devine le pokemon
+        </h1>
         <div class="flex justify-between items-center bg-gray-800/80 p-4 rounded-xl border border-gray-600 shadow-lg">
             <div class="text-lg font-bold">
                 <i class="fa-solid fa-star text-yellow-400 mr-2"></i>Score : <span id="score" class="text-2xl text-green-400 transition-colors">1000</span>
             </div>
-            <div class="text-sm text-gray-300 bg-gray-900 py-1 px-3 rounded-full">
-                <span id="streakCounter">0</span> victoire(s)
+            <div class="text-sm text-gray-300 bg-gray-900 py-1 px-3 rounded-full flex gap-3">
+                <span><span id="streakCounter">0</span> victoire(s)</span>
+                <span class="text-yellow-400 border-l border-gray-600 pl-3"><i class="fa-solid fa-fire mr-1"></i>Max: <span id="bestStreakCounter">0</span></span>
             </div>
         </div>
     </header>
@@ -186,7 +187,7 @@
     </div>
 
     <footer class="mt-8 text-gray-400 text-sm">
-        Utilise <a href="https://pokeapi.co/" target="_blank" class="text-blue-400 hover:underline">PokéAPI</a> et à été créer en partie avec <i>Gemini</i>
+        Propulsé par <a href="https://pokeapi.co/" target="_blank" class="text-blue-400 hover:underline">PokéAPI</a>
     </footer>
 
     <script>
@@ -231,7 +232,8 @@
             hintsAvailable: [],
             hintsRevealed: 0,
             gameOver: false,
-            streak: 0
+            streak: 0,
+            bestStreak: parseInt(localStorage.getItem('pokeGuessBestStreak') || '0')
         };
 
         // --- DOM ELEMENTS ---
@@ -247,6 +249,7 @@
             btnSkip: document.getElementById('btnSkip'),
             score: document.getElementById('score'),
             streakCounter: document.getElementById('streakCounter'),
+            bestStreakCounter: document.getElementById('bestStreakCounter'),
             messageArea: document.getElementById('messageArea'),
             btnNext: document.getElementById('btnNext'),
             successFx: document.getElementById('successFx'),
@@ -298,6 +301,7 @@
             state.hintsRevealed = 0;
             
             updateScoreUI();
+            els.bestStreakCounter.innerText = state.bestStreak;
             els.hintsContainer.innerHTML = '';
             els.guessInput.value = '';
             els.guessInput.disabled = false;
@@ -329,7 +333,30 @@
                 const pokeData = await pokeRes.json();
                 const speciesData = await speciesRes.json();
 
-                prepareGameData(pokeData, speciesData);
+                // NOUVEAU : Récupérer une attaque et un talent aléatoire en français
+                let randomMoveFr = "Charge";
+                let randomAbilityFr = "Aucun";
+                
+                try {
+                    if (pokeData.moves.length > 0) {
+                        const randomMove = pokeData.moves[Math.floor(Math.random() * pokeData.moves.length)].move;
+                        const moveRes = await fetch(randomMove.url);
+                        const moveData = await moveRes.json();
+                        const moveFrObj = moveData.names.find(n => n.language.name === 'fr');
+                        if (moveFrObj) randomMoveFr = moveFrObj.name;
+                    }
+                    if (pokeData.abilities.length > 0) {
+                        const randomAbility = pokeData.abilities[Math.floor(Math.random() * pokeData.abilities.length)].ability;
+                        const abilityRes = await fetch(randomAbility.url);
+                        const abilityData = await abilityRes.json();
+                        const abilityFrObj = abilityData.names.find(n => n.language.name === 'fr');
+                        if (abilityFrObj) randomAbilityFr = abilityFrObj.name;
+                    }
+                } catch(e) {
+                    console.warn("Erreur API attaque/talent", e);
+                }
+
+                prepareGameData(pokeData, speciesData, randomMoveFr, randomAbilityFr);
                 
                 // Set Image
                 els.pokemonImage.src = pokeData.sprites.other['official-artwork'].front_default || pokeData.sprites.front_default;
@@ -346,7 +373,7 @@
             }
         };
 
-        const prepareGameData = (pokeData, speciesData) => {
+        const prepareGameData = (pokeData, speciesData, randomMoveFr, randomAbilityFr) => {
             // Find French Name
             const frNameObj = speciesData.names.find(n => n.language.name === 'fr');
             state.pokemonNameFr = frNameObj ? frNameObj.name : pokeData.name;
@@ -372,8 +399,10 @@
             state.hintsAvailable = [
                 `La 1ère lettre de son nom est : <span class="font-bold text-white uppercase">${state.pokemonNameFr.charAt(0)}</span> (Il a ${state.pokemonNameFr.length} lettres).`,
                 `Son (ou ses) type(s) : <span class="font-bold text-white">${types}</span>.`,
+                `Un de ses talents possibles est : <span class="font-bold text-white">${randomAbilityFr}</span>.`,
+                `Il peut apprendre l'attaque : <span class="font-bold text-white">${randomMoveFr}</span>.`,
                 `Il est apparu lors de la génération <span class="font-bold text-white">${genNum}</span>.`,
-                `Physique : Couleur dominante <span class="font-bold text-white">${color}</span>, pèse <span class="font-bold text-white">${pokeData.weight / 10}kg</span> and mesure <span class="font-bold text-white">${pokeData.height / 10}m</span>.`,
+                `Physique : Couleur dominante <span class="font-bold text-white">${color}</span>, pèse <span class="font-bold text-white">${pokeData.weight / 10}kg</span> et mesure <span class="font-bold text-white">${pokeData.height / 10}m</span>.`,
                 `Pokédex : <em>"${description}"</em>`,
                 `SILHOUETTE` // Special keyword
             ];
@@ -433,10 +462,6 @@
                 showMessage(`Non, ce n'est pas ${userGuess} ! (-${PENALTY_MISTAKE} pts)`, "error");
                 els.guessInput.value = '';
                 els.guessInput.focus();
-                
-                if (state.score === 0) {
-                    triggerLoss();
-                }
             }
         };
 
@@ -444,6 +469,12 @@
             state.gameOver = true;
             state.streak++;
             els.streakCounter.innerText = state.streak;
+            
+            if (state.streak > state.bestStreak) {
+                state.bestStreak = state.streak;
+                localStorage.setItem('pokeGuessBestStreak', state.bestStreak);
+                els.bestStreakCounter.innerText = state.bestStreak;
+            }
             
             // Reveal Pokemon visually
             els.questionMark.classList.add('hidden');
